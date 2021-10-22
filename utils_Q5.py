@@ -48,6 +48,7 @@ def im_convert(image):
     image = image * (np.array((0.4914, 0.4822, 0.4465)) + np.array((0.2023, 0.1994, 0.2010)))
     image = image.clip(0,1)
     return image
+
 def plot_images(images, true_class, pred_class=None, num_image = 10):
     col = 5
     row = num_image // col
@@ -65,6 +66,25 @@ def plot_images(images, true_class, pred_class=None, num_image = 10):
         ax.set_xlabel(xlabel)
         ax.set_xticks([])
         ax.set_yticks([])
+    plt.show()
+
+def show_acc_plot(history, save=False):
+    fig, ax = plt.subplots(2,1)
+    ax[0].plot(history['train_loss'], color='b', label="Training loss")
+    ax[0].plot(history['val_loss'], color='r', label="validation loss",axes =ax[0])
+    legend = ax[0].legend(loc='best', shadow=True)
+
+    ax[1].plot(history['train_acc'], color='b', label="Training accuracy")
+    ax[1].plot(history['val_acc'], color='r',label="Validation accuracy")
+    legend = ax[1].legend(loc='best', shadow=True)
+
+    if save:
+        fig.savefig('history.png')
+
+def bar_plot(pred_x, label_names = label_names):
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,1,1])
+    ax.bar(label_names, pred_x)
     plt.show()
 
 def update(index, length, epoch_loss, acc, mode):
@@ -392,12 +412,12 @@ class Q5_Cifar10:
         for epoch in range(self.hyperparameters['maxepoches']):
             print("Epoch {}/{}".format(epoch +1, self.hyperparameters['maxepoches']))
 
-            train_loss, train_acc = self.__train_for_epoch(self.model, criterion, self.train_loader, optimizer, False)
+            train_loss, train_acc = self.__train_for_epoch(self.model, criterion, self.train_loader, optimizer, True)
             history['train_loss'].append(train_loss)
             history['train_acc'].append(train_acc)
 
             if self.val_loader is not None:
-                val_loss, val_acc = self.__val_for_epoch(self.model, criterion, self.val_loader, optimizer, False)
+                val_loss, val_acc = self.__val_for_epoch(self.model, criterion, self.val_loader, True)
                 history['val_loss'].append(val_loss)
                 history['val_acc'].append(val_acc)
 
@@ -463,19 +483,6 @@ class Q5_Cifar10:
             acc = acc/test_size
             print("\n Accuracy of the model on the {} test images: {}%".format(test_size, acc * 100))
         return y_pred
-
-    def show_acc_plot(self, history, save=False):
-        fig, ax = plt.subplots(2,1)
-        ax[0].plot(history['train_loss'], color='b', label="Training loss")
-        ax[0].plot(history['val_loss'], color='r', label="validation loss",axes =ax[0])
-        legend = ax[0].legend(loc='best', shadow=True)
-
-        ax[1].plot(history['train_acc'], color='b', label="Training accuracy")
-        ax[1].plot(history['val_acc'], color='r',label="Validation accuracy")
-        legend = ax[1].legend(loc='best', shadow=True)
-
-        if save:
-            fig.savefig('history.png')
     
 if __name__ == "__main__":
     model = Q5_Cifar10()
