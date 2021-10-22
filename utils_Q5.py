@@ -148,27 +148,36 @@ class VGGNet(nn.Module):
 
 class Q5_Cifar10:
 
-    def __init__(self, Model_name = 'VGG16'):
-        self.model = Model_name
-        self.batch_size = 20
+    def __init__(self, modeTrain= True, name_classes = label_names):
+        self.modeTrain = modeTrain
+
+        self.name_classes = name_classes
+
+        num_classes = len(self.name_classes)
+
         self.hyperparameters = {
             "learning_rate": 0.001,
             "batch_size": 32,
             "optimizer": "SGD", #SGD or Adam
             "maxepoches": 40,
             "lr_drop": 20,
-            'lr_decay': 1e-6,
+            "lr_decay": 1e-6,
+            "momentum": 0.94
         }
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
         self.model = None
 
-        self.model = vgg16()
+        self.model = VGGNet(num_classes)
 
         self.model= self.model.to(self.device)
 
         if self.device == 'cuda':
             self.model = torch.nn.DataParallel(self.model)
             cudnn.benchmark = True
+        if not self.modeTrain:
+            self.load_model("model/best.pth")
+
+        self.run_test = False
 
     def load_train_dataset(self, random_seed, shuffle = True, valid_size=0.2, num_workers = 2, show_sample = False, pin_memory = False):
         print('==> Preparing Data')
@@ -360,18 +369,18 @@ class Q5_Cifar10:
             acc = acc/valid_size
         return epoch_loss/len(dataloader), acc
 
-    def train(self):
+    def train(self, save = True):
         criterion = nn.CrossEntropyLoss()
         if self.hyperparameters['optimizer'] == "SGD":
             optimizer = optim.SGD(
-                self.model.parameters,
+                self.model.parameters(),
                 lr= self.hyperparameters['learning_rate'],
                 momentum= self.hyperparameters['momentum']
             )
         else:
-            optimizer = optim.Adam(self.model.parameters, lr= self.hyperparameters['learning_rate'])
+            optimizer = optim.Adam(self.model.parameters(), lr= self.hyperparameters['learning_rate'])
 
-        scheduler = optim.lr_scheduler.StepLR(optimizer, T_max=200)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20)
 
         history = {
             'train_loss': [],
@@ -380,8 +389,8 @@ class Q5_Cifar10:
             'val_acc': []
         }
         
-        for epoch in self.hyperparameters['maxepoch']:
-            print("Epoch {}/{}".format(epoch +1, self.hyperparameters['maxepoch']))
+        for epoch in range(self.hyperparameters['maxepoches']):
+            print("Epoch {}/{}".format(epoch +1, self.hyperparameters['maxepoches']))
 
             train_loss, train_acc = self.__train_for_epoch(self.model, criterion, self.train_loader, optimizer, False)
             history['train_loss'].append(train_loss)
@@ -394,21 +403,39 @@ class Q5_Cifar10:
 
                 print('\n        Training Loss: {:.4f}, Validation Loss: {:.4f}'.format(train_loss,val_loss))
                 print('         Training acc: {:.4f},  Validation acc: {:.4f}\n'.format(train_acc,val_acc))
-                            
+                if save:
+                    if val_acc > history['val_acc'][-2]:
+                        torch.save({
+                            'epopch': epoch,
+                            'model_state_dict': self.model.state_dict()
+                        }, 'best.pth')
+                    
             else:
                 print('\n        Training Loss: {:.4f}\n'.format(train_loss))
                 print('\n         Training acc: {:.4f}\n'.format(train_acc))
             scheduler.step()
+            if save:
+                torch.save({
+                    'epopch': epoch,
+                    'model_state_dict': self.model.state_dict()
+                }, 'last.pth')
+
         self.show_acc_plot(history, save= True)
 
+
+
     def load_model(self, path):
-        self.model.load_state_dict(torch.load(path))
+        if os.path.exists(path):
+            checkpoint = torch.load(path) 
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            print("Not Found the model")
+            sys.exit()
     
     @staticmethod
     def test(model, loss_fn, dataloader, verbose = True):
         y_pred = []
         correct = 0
-        total = 0
         epoch_loss = 0.0
         acc = 0.0
         test_size = 0
@@ -438,7 +465,7 @@ class Q5_Cifar10:
         return y_pred
 
     def show_acc_plot(self, history, save=False):
-        fig, ax = plt.subplot(2,1)
+        fig, ax = plt.subplots(2,1)
         ax[0].plot(history['train_loss'], color='b', label="Training loss")
         ax[0].plot(history['val_loss'], color='r', label="validation loss",axes =ax[0])
         legend = ax[0].legend(loc='best', shadow=True)
@@ -446,18 +473,15 @@ class Q5_Cifar10:
         ax[1].plot(history['train_acc'], color='b', label="Training accuracy")
         ax[1].plot(history['val_acc'], color='r',label="Validation accuracy")
         legend = ax[1].legend(loc='best', shadow=True)
+
         if save:
-            plt.savefig(os.path.join(os.getcwd, 'history.png'))
-
-
-    
-
+            fig.savefig('history.png')
     
 if __name__ == "__main__":
     model = Q5_Cifar10()
-    model.load_train_dataset(random_seed=1, show_sample=True)
-    # model.show_image()
-    model.show_model()
+    # model.load_train_dataset(random_seed=1, show_sample=True)
+    # # model.show_image()
+    # model.show_model()
 
 
 
