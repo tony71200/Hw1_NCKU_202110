@@ -443,7 +443,7 @@ class Q5_Cifar10:
                 }, 'last.pth')
 
         save_history(history)
-        self.show_acc_plot(history, save= True)
+        show_acc_plot(history, save= True)
 
     def load_model(self, path):
         if os.path.exists(path):
