@@ -520,12 +520,12 @@ class Q5_Cifar10:
     
 if __name__ == "__main__":
     model = Q5_Cifar10(modeTrain=False)
-    # model.load_train_dataset(random_seed=1, show_sample=True)
+    model.load_train_dataset(random_seed=1, show_sample=True)
     # # # model.show_image()
     # # model.show_model()
-    # model.train()
-    model.load_test_dataset(show_sample=False)
-    model.test(5)
+    model.train()
+    # model.load_test_dataset(show_sample=False)
+    # model.test(5)
 
 
 
