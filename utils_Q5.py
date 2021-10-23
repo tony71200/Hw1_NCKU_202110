@@ -422,7 +422,7 @@ class Q5_Cifar10:
 
                 print('\n        Training Loss: {:.4f}, Validation Loss: {:.4f}'.format(train_loss,val_loss))
                 print('         Training acc: {:.4f},  Validation acc: {:.4f}\n'.format(train_acc,val_acc))
-                if save and len(history['val_acc'] > 2):
+                if save and len(history['val_acc']) > 2:
                     if val_acc > max_val:
                         torch.save({
                             'epoch': epoch,
