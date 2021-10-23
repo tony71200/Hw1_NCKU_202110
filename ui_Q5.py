@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtGui import QIntValidator
 from PyQt5.QtWidgets import QLabel, QWidget, QLineEdit
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
-from PyQt5.QtWidgets import QPushButton, QGroupBox
+from PyQt5.QtWidgets import QPushButton, QGroupBox, QMessageBox
 from PyQt5.QtCore import Qt, QMetaObject
 
 import cv2 as cv
@@ -89,7 +89,7 @@ class MainWindow(QMainWindow, windowUI):
         self.buildUi()
 
     def buildUi(self):
-        self.button5_1.clicked.connect(self.show_train_image)
+        self.button5_1.clicked.connect(self.show_sample_image)
         self.button5_2.clicked.connect(self.show_hyper)
         self.button5_3.clicked.connect(self.show_model)
         self.button5_4.clicked.connect(self.show_acc)
@@ -97,32 +97,63 @@ class MainWindow(QMainWindow, windowUI):
         self.button5_6.clicked.connect(self.train)  
     
     def initialValue(self):
-        self.model = utils_Q5.Q5_Cifar10()
-        self.model.load_dataset()
+        self.Q5_model = utils_Q5.Q5_Cifar10(modeTrain=False)
+        # self.model.load_test_dataset(show_sample=True)
+        self.load = False
+        self.run_test = False
+        self.button5_6.setEnabled(self.Q5_model.modeTrain)
         pass
 
-    def show_train_image(self):
+    def errorMessage(self, title, message):
+        return QMessageBox.critical(self, title,
+                                    '<p><b>%s</b></p>%s' % (title, message))
+    
+    def status(self, message, delay=5000):
+        self.statusBar().showMessage(message, delay)
+
+    def show_sample_image(self, show_sample = True):
         print("Please wait a second")
+        self.status("Load CiFar10 Dataset, Please wait a second")
         self.setEnabled(False)
-        self.model.show_image()
+        self.testset = self.Q5_model.load_test_dataset(show_sample=show_sample)
         self.setEnabled(True)
+        self.load = True
         pass
 
     def show_hyper(self):
-        self.model.show_hyperparameter()
+        self.status("Showing hyperparameters in command line")
+        self.Q5_model.show_hyperparameter()
         pass
 
     def show_model(self):
-        self.model.show_model()
+        self.status("Showing model summary in command line")
+        self.Q5_model.show_model()
         pass
 
     def show_acc(self):
+        path = "model/history.json"
+        if os.path.exists(path):
+            history = utils_Q5.load_history(path)
+            utils_Q5.show_acc_plot(history)
+        else:
+            self.errorMessage(u'Error opening file',
+                                u"<p>Make sure <i></i> is a json file.")
+            self.status("Error reading")
         pass
 
     def test(self):
+        if not self.load:
+            self.show_sample_image(show_sample=False)
+        index = int(self.edit_5_5.text())
+        self.setEnabled(False)
+        self.Q5_model.test(index)
+        self.setEnabled(True)
         pass
 
     def train(self):
+        
+        self.Q5_model.load_train_dataset(1)
+        self.Q5_model.train()
         pass
 
 
@@ -133,4 +164,4 @@ if __name__ == "__main__":
     window = MainWindow()
     window.setGeometry(500, 150, 500, 300)
     window.show()
-    sys,exit(app.exec_())
+    sys.exit(app.exec_())

@@ -21,6 +21,7 @@ from torch.optim import lr_scheduler
 import torch.backends.cudnn as cudnn
 from torch.utils.data.sampler import SubsetRandomSampler
 import math
+import json
 
 from torchsummary import summary
 
@@ -37,13 +38,6 @@ label_names = [
     'truck'
 ]
 
-# def im_convert(tensor):
-#     image = tensor.cpu().clone().detach().numpy()
-#     image = image.transpose(1,2,0)
-#     print(image.shape)
-#     image = image * (np.array((0.4914, 0.4822, 0.4465)) + np.array((0.2023, 0.1994, 0.2010)))
-#     image = image.clip(0,1)
-#     return image
 def im_convert(image):
     image = image * (np.array((0.4914, 0.4822, 0.4465)) + np.array((0.2023, 0.1994, 0.2010)))
     image = image.clip(0,1)
@@ -66,6 +60,17 @@ def plot_images(images, true_class, pred_class=None, num_image = 10):
         ax.set_xlabel(xlabel)
         ax.set_xticks([])
         ax.set_yticks([])
+    plt.show()
+
+def plot_image(image, true_index, pred_index, pred_data, label_names = label_names):
+    true_class = label_names[true_index]
+    pred_class = label_names[pred_index]
+    fig, ax = plt.subplots(1,2)
+    ax[0].imshow(image, interpolation='spline16')
+    xlabel = "True: {0}\nPred: {1}".format(true_class, pred_class)
+    ax[0].set_xlabel(xlabel)
+
+    ax[1].bar(label_names, pred_data)
     plt.show()
 
 def show_acc_plot(history, save=False):
@@ -96,6 +101,12 @@ def update(index, length, epoch_loss, acc, mode):
         print("\r   {} progress: {:.2f}% .... loss: {:.4f}, acc: {:.4f}".format(
             mode, (index/length *100), epoch_loss/index, acc
         ), end = "", flush=True)
+
+def save_history(history:dict, path_save='history.json'):
+    json.dump(history, open(path_save, 'w+'))
+
+def load_history(path_load="history.json"):
+    return json.load(open(path_load, "r+"))
 
 class VGGNet(nn.Module):
     def __init__(self, num_classes):
@@ -185,8 +196,7 @@ class Q5_Cifar10:
             "momentum": 0.94
         }
         self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-        self.model = None
-
+        print(self.device)
         self.model = VGGNet(num_classes)
 
         self.model= self.model.to(self.device)
@@ -197,7 +207,7 @@ class Q5_Cifar10:
         if not self.modeTrain:
             self.load_model("model/best.pth")
 
-        self.run_test = False
+        self.loss_fn = nn.CrossEntropyLoss()
 
     def load_train_dataset(self, random_seed, shuffle = True, valid_size=0.2, num_workers = 2, show_sample = False, pin_memory = False):
         print('==> Preparing Data')
@@ -265,7 +275,7 @@ class Q5_Cifar10:
             X = images.numpy().transpose ([0,2,3,1])
             plot_images(X, labels)
 
-    def load_test_dataset(self, num_workers = 2, show_sample = False, pin_memory = False):
+    def load_test_dataset(self, num_workers = 2, show_sample = True, pin_memory = False):
         print('==> Preparing Data')
         normalize = transforms.Normalize(
             mean = [0.4914, 0.4822, 0.4465],
@@ -282,21 +292,15 @@ class Q5_Cifar10:
         )
         
         print("Test_length: ", len(testset))
-
-        self.test_loader = torch.utils.data.DataLoader(
-            testset, batch_size = self.hyperparameters['batch_size'], 
-            shuffle = False,
-            num_workers = num_workers, 
-            pin_memory = pin_memory
-        )
         if show_sample:
             sample_loader = torch.utils.data.DataLoader(testset, batch_size= 10,
                 shuffle = True, num_workers=num_workers, pin_memory= pin_memory)
             
             data_iter = iter(sample_loader)
             images, labels = data_iter.next()
-            X = images.numpy().transpose ([0,2,3,1])
-            plot_images(X, labels)    
+            X = images.numpy().transpose([0,2,3,1])
+            plot_images(X, labels)
+        self.testset = testset
 
     def show_hyperparameter(self):
         print("==> Show Hyperparameters")
@@ -308,11 +312,8 @@ class Q5_Cifar10:
 
     def show_model(self):
         if self.model is not None:
-            sum_model = summary(self.model, (3,32,32))
-            print(sum_model)
-            pass
-        pass
-
+            summary(self.model, (3,32,32))
+            
     @staticmethod
     def __train_for_epoch(model, loss_fn, dataloader, optimizer, verbose):
         # Train mode
@@ -357,7 +358,6 @@ class Q5_Cifar10:
         acc = acc/train_size
         return epoch_loss/len(dataloader), acc
 
-
     @staticmethod
     def __val_for_epoch(model, loss_fn, dataloader, verbose):
         model.eval()
@@ -390,7 +390,6 @@ class Q5_Cifar10:
         return epoch_loss/len(dataloader), acc
 
     def train(self, save = True):
-        criterion = nn.CrossEntropyLoss()
         if self.hyperparameters['optimizer'] == "SGD":
             optimizer = optim.SGD(
                 self.model.parameters(),
@@ -412,23 +411,26 @@ class Q5_Cifar10:
         for epoch in range(self.hyperparameters['maxepoches']):
             print("Epoch {}/{}".format(epoch +1, self.hyperparameters['maxepoches']))
 
-            train_loss, train_acc = self.__train_for_epoch(self.model, criterion, self.train_loader, optimizer, True)
+            train_loss, train_acc = self.__train_for_epoch(self.model, self.loss_fn, self.train_loader, optimizer, True)
             history['train_loss'].append(train_loss)
             history['train_acc'].append(train_acc)
 
             if self.val_loader is not None:
-                val_loss, val_acc = self.__val_for_epoch(self.model, criterion, self.val_loader, True)
+                val_loss, val_acc = self.__val_for_epoch(self.model, self.loss_fn, self.val_loader, True)
                 history['val_loss'].append(val_loss)
                 history['val_acc'].append(val_acc)
 
                 print('\n        Training Loss: {:.4f}, Validation Loss: {:.4f}'.format(train_loss,val_loss))
                 print('         Training acc: {:.4f},  Validation acc: {:.4f}\n'.format(train_acc,val_acc))
-                if save:
-                    if val_acc > history['val_acc'][-2]:
+                if save and len(history['val_acc'] > 2):
+                    if val_acc > max_val:
                         torch.save({
-                            'epopch': epoch,
-                            'model_state_dict': self.model.state_dict()
+                            'epoch': epoch,
+                            'model_state_dict': self.model.state_dict(),
                         }, 'best.pth')
+                        max_val = val_acc
+                else:
+                    max_val = val_acc
                     
             else:
                 print('\n        Training Loss: {:.4f}\n'.format(train_loss))
@@ -436,25 +438,30 @@ class Q5_Cifar10:
             scheduler.step()
             if save:
                 torch.save({
-                    'epopch': epoch,
-                    'model_state_dict': self.model.state_dict()
+                    'epoch': epoch,
+                    'model_state_dict': self.model.state_dict(),
                 }, 'last.pth')
 
+        save_history(history)
         self.show_acc_plot(history, save= True)
-
-
 
     def load_model(self, path):
         if os.path.exists(path):
-            checkpoint = torch.load(path) 
+            if torch.cuda.is_available():
+                checkpoint = torch.load(path)
+            else:
+                checkpoint = torch.load(path, map_location=torch.device('cpu')) 
+            print(checkpoint['epopch'])
             self.model.load_state_dict(checkpoint['model_state_dict'])
+
         else:
             print("Not Found the model")
             sys.exit()
     
     @staticmethod
-    def test(model, loss_fn, dataloader, verbose = True):
+    def testing_model(model, loss_fn, dataloader, verbose = True):
         y_pred = []
+        prob = []
         correct = 0
         epoch_loss = 0.0
         acc = 0.0
@@ -478,17 +485,47 @@ class Q5_Cifar10:
                 length = len(dataloader)
 
                 y_pred += pred.cpu().numpy().tolist()
+                prob += output.data.cpu().numpy().tolist()
                 if verbose:
                     update(idx, length, epoch_loss, acc/test_size, 'testing')
             acc = acc/test_size
             print("\n Accuracy of the model on the {} test images: {}%".format(test_size, acc * 100))
-        return y_pred
+        return y_pred, prob
+    
+    def test(self, index, show_image = True):
+        if index < 0:
+            index = 0
+        if index > len(self.testset):
+            index = len(self.testset) -1
+
+        input = self.testset[index]
+        loader = torch.utils.data.DataLoader(input, batch_size= 1,
+                shuffle = False, num_workers=1, pin_memory= False)
+        (image, target) = loader
+        if torch.cuda.is_available():
+            image = image.cuda()
+            target = target.cuda()
+        
+        output = self.model(image)
+
+        _, pred = torch.max(output.data, dim=1)
+        y_pred = pred.cpu().numpy().tolist()[0]
+        y_truth = target.cpu().numpy().tolist()[0]
+        probability = torch.softmax(output, dim=1).cpu().tolist()[0]
+      
+        X = image.cpu().numpy().transpose([0,2,3,1])[0]
+        if show_image:
+            plot_image(X, y_truth, y_pred, probability)
+
     
 if __name__ == "__main__":
-    model = Q5_Cifar10()
+    model = Q5_Cifar10(modeTrain=False)
     # model.load_train_dataset(random_seed=1, show_sample=True)
-    # # model.show_image()
-    # model.show_model()
+    # # # model.show_image()
+    # # model.show_model()
+    # model.train()
+    model.load_test_dataset(show_sample=False)
+    model.test(5)
 
 
 
