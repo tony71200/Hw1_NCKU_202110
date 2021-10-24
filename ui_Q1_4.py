@@ -335,29 +335,37 @@ class MainWindow(QMainWindow, windowUI):
         grayL = cv.cvtColor(imL, cv.COLOR_BGR2GRAY)
         grayR = cv.cvtColor(imR, cv.COLOR_BGR2GRAY)
 
-        #intial value for Q3
-        window_size = 3
-        min_disp = 9
-        # num_disp = 112-min_disp
-        num_disp = 32
-        stereo = cv.StereoSGBM_create(minDisparity = min_disp,
-            numDisparities = num_disp,
-            blockSize = 9,
-            P1 = 8*3*window_size**2,
-            P2 = 32*3*window_size**2,
-            disp12MaxDiff = 1,
-            uniquenessRatio = 10,
-            speckleWindowSize = 100,
-            speckleRange = 32
-        )
-        QApplication.processEvents()
+        # intial value for Q3
+        # window_size = 3
+        # min_disp = 9
+        # # num_disp = 112-min_disp
+        # num_disp = 256#32
+        # stereo = cv.StereoSGBM_create(minDisparity = min_disp,
+        #     numDisparities = num_disp,
+        #     blockSize = 25,
+        #     P1 = 8*3*window_size**2,
+        #     P2 = 32*3*window_size**2,
+        #     disp12MaxDiff = 1,
+        #     uniquenessRatio = 10,
+        #     speckleWindowSize = 100,
+        #     speckleRange = 32
+        # )
+        # QApplication.processEvents()
 
-        disparity = stereo.compute(grayL, grayR).astype(np.float32)/16
+        # disparity_f = stereo.compute(grayL, grayR).astype(np.float32)/16
+        # disparity_f = stereo.compute(grayL, grayR)
+        disparity_f = utils.disparity(grayL, grayR)
+        print(disparity_f.shape)
+        u8 =utils.process_ouput(disparity_f) 
         self.setEnabled(True)
         #show disparity
         cv.namedWindow("Disparity", cv.WINDOW_GUI_EXPANDED)
-        cv.imshow("Disparity", (disparity - min_disp)/ num_disp)
+        # cv.imshow("Disparity", (disparity - min_disp)/ num_disp)
+        cv.imshow("Disparity", u8)
         cv.waitKey(1000)
+        cv.namedWindow("Map Disparity", cv.WINDOW_GUI_EXPANDED)
+        utils.map_disparity(imL, imR, u8, "Map Disparity")
+        cv.waitKey(0)
 
         pass
 
