@@ -185,11 +185,11 @@ def map_disparity(imgL, imgR, disparity, win):
             if cur_x < 0:
                 cur_x = 0
             elif cur_x >= wL:
-                cur_x = wL
+                cur_x = wL-1
             if cur_y < 0:
                 cur_y = 0
             elif cur_y >= hL:
-                cur_y = hL
+                cur_y = hL-1
             delta_pos = disparity[cur_y,cur_x]
             print("disparity value at ({},{}): {}".format(cur_x, cur_y, delta_pos))
             if delta_pos > 0:

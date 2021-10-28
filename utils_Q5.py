@@ -85,6 +85,7 @@ def show_acc_plot(history, save=False):
 
     if save:
         fig.savefig('history.png')
+    plt.show()
 
 def bar_plot(pred_x, label_names = label_names):
     fig = plt.figure()
@@ -180,7 +181,7 @@ class VGGNet(nn.Module):
 class Q5_Cifar10:
 
     def __init__(self, modeTrain= True, name_classes = label_names):
-        self.modeTrain = modeTrain
+        self.modeTrain = modeTrain & torch.cuda.is_available()
 
         self.name_classes = name_classes
 
@@ -451,7 +452,7 @@ class Q5_Cifar10:
                 checkpoint = torch.load(path)
             else:
                 checkpoint = torch.load(path, map_location=torch.device('cpu')) 
-            print(checkpoint['epopch'])
+            print(checkpoint['epoch'])
             self.model.load_state_dict(checkpoint['model_state_dict'])
 
         else:
@@ -521,7 +522,7 @@ class Q5_Cifar10:
 if __name__ == "__main__":
     model = Q5_Cifar10(modeTrain=False)
     model.load_train_dataset(random_seed=1, show_sample=True)
-    # # # model.show_image()
+    # # model.show_image()
     # # model.show_model()
     model.train()
     # model.load_test_dataset(show_sample=False)
