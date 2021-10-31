@@ -97,7 +97,7 @@ class MainWindow(QMainWindow, windowUI):
         self.button5_6.clicked.connect(self.train)  
     
     def initialValue(self):
-        self.Q5_model = utils_Q5.Q5_Cifar10(modeTrain=False)
+        self.Q5_model = utils_Q5.Q5_Cifar10(modeTrain=True)
         # self.model.load_test_dataset(show_sample=True)
         self.load = False
         self.run_test = False
@@ -111,11 +111,14 @@ class MainWindow(QMainWindow, windowUI):
     def status(self, message, delay=5000):
         self.statusBar().showMessage(message, delay)
 
-    def show_sample_image(self, show_sample = True):
+    def show_sample_image(self, show = True, show_sample = True):
         print("Please wait a second")
+        print(show_sample)
         self.status("Load CiFar10 Dataset, Please wait a second")
         self.setEnabled(False)
+        QApplication.processEvents()
         self.testset = self.Q5_model.load_test_dataset(show_sample=show_sample)
+        # QApplication.processEvents()
         self.setEnabled(True)
         self.load = True
         pass
@@ -133,8 +136,12 @@ class MainWindow(QMainWindow, windowUI):
     def show_acc(self):
         path = "model/history.json"
         if os.path.exists(path):
+            self.setEnabled(False)
+            QApplication.processEvents()
             history = utils_Q5.load_history(path)
             utils_Q5.show_acc_plot(history)
+            # QApplication.processEvents()
+            self.setEnabled(True)
         else:
             self.errorMessage(u'Error opening file',
                                 u"<p>Make sure <i></i> is a json file.")
@@ -143,15 +150,18 @@ class MainWindow(QMainWindow, windowUI):
 
     def test(self):
         if not self.load:
+            QApplication.processEvents()
             self.show_sample_image(show_sample=False)
         index = int(self.edit_5_5.text())
         self.setEnabled(False)
+        self.status("Please wait few second.")
+        QApplication.processEvents()
         self.Q5_model.test(index)
         self.setEnabled(True)
         pass
 
     def train(self):
-        
+        QApplication.processEvents()
         self.Q5_model.load_train_dataset(1)
         self.Q5_model.train()
         pass

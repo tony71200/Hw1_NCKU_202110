@@ -65,8 +65,10 @@ class windowUI(object):
         group_V3_vBoxLayout = QVBoxLayout(Stereo_Disparity_Group)
 
         self.button3_1 = QPushButton("3.1 Stereo Disparity Map")
+        self.button3_2 = QPushButton("3.2 Checking the Disparity Value")
 
         group_V3_vBoxLayout.addWidget(self.button3_1)
+        group_V3_vBoxLayout.addWidget(self.button3_2)
 
         # 4. Transformation Group
         SIFT_Group = QGroupBox("4. SIFT")
@@ -131,6 +133,7 @@ class MainWindow(QMainWindow, windowUI):
         self.button2_2.clicked.connect(self.word_Vertical)
 
         self.button3_1.clicked.connect(self.stereoDisparity)
+        self.button3_2.clicked.connect(self.checkDisparity)
 
         self.button4_1.clicked.connect(self.keypoints_Q4)
         self.button4_2.clicked.connect(self.matchKeypoints)   
@@ -152,7 +155,7 @@ class MainWindow(QMainWindow, windowUI):
             [4,2,0], # slot 5
             [1,2,0]  # slot 6
         ]
-
+        self.q3_1 = False
         self.q4_1 = False
         self.q4_2 = False
 
@@ -329,37 +332,30 @@ class MainWindow(QMainWindow, windowUI):
 
     def stereoDisparity(self):
         self.setEnabled(False)
-        imL = cv.imread("Q3_Image/imL.png")
-        imR = cv.imread("Q3_Image/imR.png")
+        self.imL = cv.imread("Q3_Image/imL.png")
+        self.imR = cv.imread("Q3_Image/imR.png")
 
-        grayL = cv.cvtColor(imL, cv.COLOR_BGR2GRAY)
-        grayR = cv.cvtColor(imR, cv.COLOR_BGR2GRAY)
+        grayL = cv.cvtColor(self.imL, cv.COLOR_BGR2GRAY)
+        grayR = cv.cvtColor(self.imR, cv.COLOR_BGR2GRAY)
 
-        #intial value for Q3
-        window_size = 3
-        min_disp = 9
-        # num_disp = 112-min_disp
-        num_disp = 32
-        stereo = cv.StereoSGBM_create(minDisparity = min_disp,
-            numDisparities = num_disp,
-            blockSize = 9,
-            P1 = 8*3*window_size**2,
-            P2 = 32*3*window_size**2,
-            disp12MaxDiff = 1,
-            uniquenessRatio = 10,
-            speckleWindowSize = 100,
-            speckleRange = 32
-        )
-        QApplication.processEvents()
-
-        disparity = stereo.compute(grayL, grayR).astype(np.float32)/16
+        disparity_f = utils.disparity(grayL, grayR)
+        print(disparity_f.shape)
+        self.u8 =utils.process_ouput(disparity_f) 
         self.setEnabled(True)
         #show disparity
         cv.namedWindow("Disparity", cv.WINDOW_GUI_EXPANDED)
-        cv.imshow("Disparity", (disparity - min_disp)/ num_disp)
+        # cv.imshow("Disparity", (disparity - min_disp)/ num_disp)
+        cv.imshow("Disparity", self.u8)
         cv.waitKey(1000)
-
+        self.q3_1 = True
         pass
+
+    def checkDisparity(self):
+        if not self.q3_1:
+            self.stereoDisparity()
+        cv.namedWindow("Checking Disparity", cv.WINDOW_GUI_EXPANDED)
+        utils.map_disparity(self.imL, self.imR, self.u8, "Checking Disparity")
+        cv.waitKey(0)
 
     def keypoints_Q4(self):
         if len(self.images_Q4) == 0:
